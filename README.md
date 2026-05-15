@@ -36,6 +36,9 @@ mvn package
 java -jar target/flappy-bird-1.0.jar
 ```
 
+
+
+
 ## Descripción de cambios realizados
 
 ### 2.1 Pájaro compuesto por figuras geométricas

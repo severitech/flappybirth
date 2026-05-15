@@ -11,54 +11,64 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 /**
  * Clase Ventana - Gestiona el ciclo de vida de la ventana y el bucle principal
  *
- * Inicializa GLFW y OpenGL, crea la ventana del juego, y ejecuta el game loop
- * que actualiza la lógica y renderiza cada frame usando deltaTime para asegurar
- * que el movimiento sea independiente de los FPS del hardware.
+ * Inicializa GLFW y OpenGL 3.3 core, crea la ventana del juego y ejecuta el
+ * game loop que actualiza la lógica y renderiza cada frame usando deltaTime
+ * para asegurar que el movimiento sea independiente de los FPS del hardware.
+ *
+ * También crea e integra el sistema de sonido con OpenAL.
  */
 public class Ventana {
 
-    // Handle de la ventana GLFW (identificador opaco de la ventana nativa)
+    // Handle de la ventana GLFW (identificador opaco de la ventana nativa del SO)
     private long handle;
 
-    // Dimensiones de la ventana en píxeles
-    private static final int ANCHO  = 800;
-    private static final int ALTO   = 600;
+    // Dimensiones fijas de la ventana en píxeles
+    private static final int ANCHO = 800;
+    private static final int ALTO  = 600;
 
-    // Instancia del juego que contiene toda la lógica
+    // Instancia del juego que contiene toda la lógica y el estado
     private Juego juego;
 
-    // Renderer que maneja los shaders y el dibujado de primitivas
+    // Renderer que maneja los shaders y el dibujado de primitivas OpenGL
     private Renderer renderer;
 
-    // Gestor de entrada que escucha el teclado
+    // Gestor de entrada que escucha los eventos del teclado
     private GestorEntrada gestorEntrada;
 
+    // Gestor de sonido que reproduce efectos de audio con OpenAL
+    private GestorSonido gestorSonido;
+
     /**
-     * Método principal: inicializar, ejecutar el bucle y limpiar al salir
+     * Método principal del ciclo de vida:
+     * inicializar → ejecutar bucle → limpiar recursos al salir.
      */
     public void ejecutar() {
-        inicializar();
-        bucclePrincipal();
-        limpiar();
+        inicializar();      // Configurar GLFW, OpenGL y todos los sistemas
+        bucclePrincipal();  // Ejecutar el game loop hasta que el usuario cierre
+        limpiar();          // Liberar todos los recursos del sistema
     }
 
     /**
-     * Inicializa GLFW, crea la ventana y configura el contexto OpenGL
+     * Inicializa GLFW, OpenGL, el renderer, el juego, el audio y el input.
      */
     private void inicializar() {
         // Redirigir errores de GLFW a stderr para facilitar el debugging
         GLFWErrorCallback.createPrint(System.err).set();
 
-        // Inicializar GLFW: debe hacerse antes de cualquier llamada a GLFW
+        // Inicializar la librería GLFW: debe ser la primera llamada a GLFW
         if (!glfwInit()) {
             throw new IllegalStateException("No se pudo inicializar GLFW");
         }
 
-        // Configurar las pistas (hints) para la creación de la ventana
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);      // OpenGL versión 3.x
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);      // OpenGL versión x.3
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // Core profile
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);          // Ventana no redimensionable
+        // Especificar que queremos OpenGL versión 3.3
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);       // Major: 3
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);       // Minor: 3 → v3.3
+
+        // Usar el perfil core (sin funciones deprecated de OpenGL legacy)
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+        // La ventana no podrá ser redimensionada por el usuario
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         // Crear la ventana con el título inicial
         handle = glfwCreateWindow(ANCHO, ALTO, "Flappy Bird - 2 Jugadores", NULL, NULL);
@@ -69,99 +79,121 @@ public class Ventana {
         // Hacer que el contexto OpenGL de esta ventana sea el activo en este hilo
         glfwMakeContextCurrent(handle);
 
-        // Activar V-Sync (1 = sincronizar con el monitor, 0 = sin límite de FPS)
+        // Activar V-Sync: sincronizar con la tasa de refresco del monitor
         glfwSwapInterval(1);
 
-        // IMPORTANTE: crear las capabilities de OpenGL para este contexto
-        // Sin esto, ninguna llamada a GL33 funcionará
+        // Cargar las capacidades de OpenGL para este contexto (obligatorio en LWJGL3)
         GL.createCapabilities();
 
-        // Definir el viewport: el área de la ventana donde OpenGL dibujará
+        // Definir el área de la ventana donde OpenGL dibujará (toda la ventana)
         glViewport(0, 0, ANCHO, ALTO);
 
-        // Crear e inicializar todos los sistemas del juego
+        // Crear el juego (contiene pájaros, tuberías, lógica y estado)
         juego = new Juego();
+
+        // Crear e inicializar el renderer (compila shaders, crea VAO/VBO)
         renderer = new Renderer();
         renderer.inicializar();
 
-        // Registrar el callback de teclado DESPUÉS de crear el juego
+        // Crear e inicializar el sistema de audio OpenAL
+        gestorSonido = new GestorSonido();
+        gestorSonido.inicializar();
+
+        // Pasar el gestor de sonido al juego para que pueda reproducir efectos
+        juego.setGestorSonido(gestorSonido);
+
+        // Registrar el callback de teclado (debe hacerse después de crear el juego)
         gestorEntrada = new GestorEntrada(handle, juego);
         gestorEntrada.inicializar();
 
-        // Mostrar la ventana al usuario
+        // Mostrar la ventana al usuario (antes estaba oculta durante la inicialización)
         glfwShowWindow(handle);
     }
 
     /**
-     * Bucle principal del juego (game loop)
+     * Bucle principal del juego (game loop).
      *
      * Ejecuta continuamente hasta que el usuario cierra la ventana.
-     * Calcula el deltaTime para que el movimiento sea independiente de los FPS.
+     * Usa deltaTime para que el movimiento sea independiente de los FPS.
      */
     private void bucclePrincipal() {
-        // Tiempo del frame anterior (en segundos, usando el reloj de GLFW)
+        // Registrar el tiempo del primer frame usando el reloj de alta resolución de GLFW
         double tiempoAnterior = glfwGetTime();
 
         // El bucle continúa mientras el usuario no haya pedido cerrar la ventana
         while (!glfwWindowShouldClose(handle)) {
 
             // --- CÁLCULO DE DELTATIME ---
+
+            // Obtener el tiempo actual en segundos desde que se inició GLFW
             double tiempoActual = glfwGetTime();
+
+            // Delta = tiempo transcurrido desde el frame anterior
             float deltaTime = (float)(tiempoActual - tiempoAnterior);
+
+            // Actualizar el tiempo anterior para el siguiente frame
             tiempoAnterior = tiempoActual;
 
-            // Limitar deltaTime para evitar saltos grandes si la ventana se congela
+            // Limitar el deltaTime máximo para evitar saltos grandes si la ventana
+            // se congela o el sistema va muy lento (ej: al mover la ventana)
             if (deltaTime > 0.05f) deltaTime = 0.05f;
 
             // --- ACTUALIZACIÓN DE LÓGICA ---
+
+            // Actualizar toda la física, colisiones y estado del juego
             juego.actualizar(deltaTime);
 
-            // Actualizar el título de la ventana con puntajes y nivel actuales
+            // Refrescar el título de la ventana con puntajes y nivel actuales
             actualizarTitulo();
 
             // --- RENDERIZADO ---
-            // Limpiar el buffer de color con un color negro
+
+            // Limpiar el framebuffer con negro antes de dibujar el nuevo frame
             glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT);
 
-            // Dibujar el frame actual
+            // Dibujar el frame actual (fondo, elementos de juego, HUD)
             juego.dibujar(renderer);
 
-            // Intercambiar los buffers (mostrar lo que se acaba de dibujar)
+            // Intercambiar los buffers front/back (mostrar el frame recién dibujado)
             glfwSwapBuffers(handle);
 
-            // Procesar todos los eventos pendientes de GLFW (input, resize, etc.)
+            // Procesar todos los eventos pendientes de GLFW (teclado, ratón, cierre)
             glfwPollEvents();
         }
     }
 
     /**
-     * Actualiza el título de la ventana con los puntajes y el nivel actuales
+     * Actualiza el título de la ventana mostrando puntajes y nivel actuales.
+     * Esto le da información al jugador sin ocupar espacio en pantalla.
      */
     private void actualizarTitulo() {
         String titulo = String.format(
             "Flappy Bird | J1: %d pts | J2: %d pts | Nivel: %d",
-            juego.getPuntajeJ1(),
-            juego.getPuntajeJ2(),
-            juego.getNivel()
+            juego.getPuntajeJ1(),   // Puntaje del jugador 1
+            juego.getPuntajeJ2(),   // Puntaje del jugador 2
+            juego.getNivel()        // Nivel de dificultad actual
         );
         glfwSetWindowTitle(handle, titulo);
     }
 
     /**
-     * Libera todos los recursos: OpenGL, renderer y GLFW
+     * Libera todos los recursos en el orden correcto para evitar memory leaks.
      */
     private void limpiar() {
-        // Liberar los recursos del renderer (shaders, VAO, VBO)
+        // Liberar los recursos del renderer (shaders, VAO, VBO de la GPU)
         renderer.limpiar();
 
-        // Destruir la ventana GLFW y liberar sus callbacks
+        // Liberar los recursos de audio OpenAL (buffers, fuentes, contexto)
+        gestorSonido.limpiar();
+
+        // Destruir la ventana GLFW y liberar sus callbacks internos
         glfwDestroyWindow(handle);
 
-        // Terminar GLFW y liberar todos los recursos del sistema
+        // Finalizar GLFW y liberar todos los recursos del sistema de ventanas
         glfwTerminate();
 
-        // Liberar el callback de error (evitar memory leak)
+        // Liberar el callback de error para evitar un memory leak en LWJGL
         GLFWErrorCallback callback = glfwSetErrorCallback(null);
         if (callback != null) {
             callback.free();

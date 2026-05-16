@@ -19,33 +19,52 @@ public class Renderer {
     // Identificador del programa de shaders compilado en la GPU
     private int programaShader;
 
-    // VAO = Vertex Array Object: guarda la configuración de atributos de vértices
+    // VAO/VBO del quad estático reutilizable (rectángulos)
     private int vao;
-
-    // VBO = Vertex Buffer Object: guarda los datos de vértices en la GPU
     private int vbo;
 
-    // Código fuente del vertex shader: transforma posiciones de píxeles a NDC
+    // VAO/VBO dinámico reutilizable para triángulos y círculos.
+    // Se pre-asignan una sola vez y se actualizan con glBufferData cada llamada,
+    // evitando crear/destruir objetos de GPU cada frame (causa de parpadeos).
+    private int vaoDin;
+    private int vboDin;
+
+    // -------------------------------------------------------------------------
+    // VERTEX SHADER - idéntico al del ingeniero (AppFlappyBird)
+    //
+    // Entrada : vec3 aPos  — igual que el ing.
+    // Salida  : gl_Position en NDC directo, igual que el ing.
+    // Operación: finalPos = aPos.xy * uScale + uOffset  — igual que el ing.
+    //
+    // uOffset y uScale llegan en NDC (-1..1) desde Java, igual que el ing.
+    // Ya NO se hace ninguna conversión de píxeles a NDC aquí: todo el juego
+    // trabaja en NDC, igual que el proyecto del ingeniero.
+    // -------------------------------------------------------------------------
     private static final String VERTEX_SHADER_SRC =
             "#version 330 core\n" +
-            "layout (location = 0) in vec2 aPos;\n" +
-            "uniform vec2 offset;\n" +   // Posición en pantalla (píxeles)
-            "uniform vec2 scale;\n" +    // Escala (ancho, alto)
+            "layout (location = 0) in vec3 aPos;\n" +
+            // Posición NDC del origen del quad (esquina inferior-izquierda)
+            "uniform vec2 uOffset;\n" +
+            // Tamaño NDC del quad (ancho, alto)
+            "uniform vec2 uScale;\n" +
             "void main() {\n" +
-            "    vec2 pos = (aPos * scale + offset);\n" +
-            // Convertir de píxeles a NDC: dividir por la mitad del tamaño de ventana
-            "    pos.x = (pos.x / 400.0) - 1.0;\n" +  // 400 = mitad del ancho (800/2)
-            "    pos.y = (pos.y / 300.0) - 1.0;\n" +  // 300 = mitad del alto  (600/2)
-            "    gl_Position = vec4(pos, 0.0, 1.0);\n" +
+            // Misma línea clave que usa el ing.: escala el quad y lo traslada en NDC
+            "    vec2 finalPos = aPos.xy * uScale + uOffset;\n" +
+            "    gl_Position = vec4(finalPos, aPos.z, 1.0);\n" +
             "}\n";
 
-    // Código fuente del fragment shader: pinta cada fragmento con el color uniforme
+    // -------------------------------------------------------------------------
+    // FRAGMENT SHADER - idéntico al del ingeniero (AppFlappyBird)
+    //
+    // uColor : vec3 RGB uniforme → mismo nombre y tipo que el ing.
+    // Salida : fragColor con alpha = 1.0 → mismo nombre que el ing.
+    // -------------------------------------------------------------------------
     private static final String FRAGMENT_SHADER_SRC =
             "#version 330 core\n" +
-            "out vec4 FragColor;\n" +
-            "uniform vec3 color;\n" +   // Color RGB pasado desde Java
+            "out vec4 fragColor;\n" +
+            "uniform vec3 uColor;\n" +
             "void main() {\n" +
-            "    FragColor = vec4(color, 1.0);\n" +
+            "    fragColor = vec4(uColor, 1.0);\n" +
             "}\n";
 
     /**
@@ -59,16 +78,18 @@ public class Renderer {
         vao = glGenVertexArrays();
         glBindVertexArray(vao);
 
-        // Definir los vértices de un quad unitario (de 0 a 1 en X e Y)
-        // Dos triángulos forman un rectángulo completo
+        // Quad base unitario: de 0 a 1 en X e Y, z = 0 siempre.
+        // Igual que el ing. usamos vec3 por vértice (x, y, z) aunque z sea 0,
+        // para que la firma del shader coincida exactamente con la del ing.
+        // Dos triángulos (6 vértices) forman el rectángulo reutilizable.
         float[] vertices = {
-            0.0f, 0.0f,   // Vértice inferior-izquierdo
-            1.0f, 0.0f,   // Vértice inferior-derecho
-            1.0f, 1.0f,   // Vértice superior-derecho
+            0.0f, 0.0f, 0.0f,   // Vértice inferior-izquierdo
+            1.0f, 0.0f, 0.0f,   // Vértice inferior-derecho
+            1.0f, 1.0f, 0.0f,   // Vértice superior-derecho
 
-            0.0f, 0.0f,   // Vértice inferior-izquierdo
-            1.0f, 1.0f,   // Vértice superior-derecho
-            0.0f, 1.0f    // Vértice superior-izquierdo
+            0.0f, 0.0f, 0.0f,   // Vértice inferior-izquierdo
+            1.0f, 1.0f, 0.0f,   // Vértice superior-derecho
+            0.0f, 1.0f, 0.0f    // Vértice superior-izquierdo
         };
 
         // Crear el VBO y subir los datos de vértices a la GPU
@@ -77,11 +98,23 @@ public class Renderer {
         glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
 
         // Indicar a OpenGL cómo leer los datos del VBO:
-        // location=0, 2 floats, sin normalizar, stride=8 bytes, offset=0
-        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
+        // location=0, 3 floats (vec3 igual que el ing.), sin normalizar,
+        // stride=12 bytes (3 floats * 4 bytes), offset=0
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
         glEnableVertexAttribArray(0);
 
         // Desenlazar para evitar modificaciones accidentales
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+
+        // VAO/VBO dinámico: pre-asignado vacío, se rellena en cada llamada
+        // con glBufferData(..., GL_STREAM_DRAW) sin crear nuevos objetos de GPU
+        vaoDin = glGenVertexArrays();
+        glBindVertexArray(vaoDin);
+        vboDin = glGenBuffers();
+        glBindBuffer(GL_ARRAY_BUFFER, vboDin);
+        glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
+        glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
     }
@@ -99,19 +132,16 @@ public class Renderer {
      */
     public void dibujarRect(float x, float y, float ancho, float alto,
                             float r, float g, float b) {
-        // Activar el programa de shaders
         glUseProgram(programaShader);
 
-        // Pasar la posición como uniforme al shader
-        int locOffset = glGetUniformLocation(programaShader, "offset");
+        // Mismos nombres de uniforme que el ing.: uOffset, uScale, uColor
+        int locOffset = glGetUniformLocation(programaShader, "uOffset");
         glUniform2f(locOffset, x, y);
 
-        // Pasar la escala (ancho, alto) como uniforme al shader
-        int locScale = glGetUniformLocation(programaShader, "scale");
+        int locScale = glGetUniformLocation(programaShader, "uScale");
         glUniform2f(locScale, ancho, alto);
 
-        // Pasar el color como uniforme al shader
-        int locColor = glGetUniformLocation(programaShader, "color");
+        int locColor = glGetUniformLocation(programaShader, "uColor");
         glUniform3f(locColor, r, g, b);
 
         // Enlazar el VAO del quad base y dibujar 6 vértices (2 triángulos)
@@ -131,40 +161,28 @@ public class Renderer {
     public void dibujarTriangulo(float x1, float y1, float x2, float y2,
                                   float x3, float y3,
                                   float r, float g, float b) {
-        // Activar shaders
         glUseProgram(programaShader);
 
-        // Para el triángulo usamos offset=0,0 y scale=1,1 para pasar coords directas
-        int locOffset = glGetUniformLocation(programaShader, "offset");
+        // uOffset=(0,0) y uScale=(1,1): los vértices ya vienen en píxeles absolutos,
+        // así que no se aplica traslación ni escala extra (solo la conversión a NDC)
+        int locOffset = glGetUniformLocation(programaShader, "uOffset");
         glUniform2f(locOffset, 0, 0);
 
-        int locScale = glGetUniformLocation(programaShader, "scale");
+        int locScale = glGetUniformLocation(programaShader, "uScale");
         glUniform2f(locScale, 1, 1);
 
-        int locColor = glGetUniformLocation(programaShader, "color");
+        // Mismo nombre de uniforme de color que el ing.: uColor
+        int locColor = glGetUniformLocation(programaShader, "uColor");
         glUniform3f(locColor, r, g, b);
 
-        // Crear VAO/VBO temporal para el triángulo
-        int triVao = glGenVertexArrays();
-        glBindVertexArray(triVao);
-
-        int triVbo = glGenBuffers();
-        glBindBuffer(GL_ARRAY_BUFFER, triVbo);
-
-        // Los tres vértices del triángulo en píxeles (el shader los convierte a NDC)
-        float[] verts = { x1, y1, x2, y2, x3, y3 };
+        // Reutilizar el VAO/VBO dinámico: solo actualizamos los datos, sin crear objetos nuevos
+        float[] verts = { x1, y1, 0.0f, x2, y2, 0.0f, x3, y3, 0.0f };
+        glBindVertexArray(vaoDin);
+        glBindBuffer(GL_ARRAY_BUFFER, vboDin);
         glBufferData(GL_ARRAY_BUFFER, verts, GL_STREAM_DRAW);
-
-        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
-        glEnableVertexAttribArray(0);
-
-        // Dibujar el triángulo
         glDrawArrays(GL_TRIANGLES, 0, 3);
-
-        // Limpiar los recursos temporales inmediatamente
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
-        glDeleteBuffers(triVbo);
-        glDeleteVertexArrays(triVao);
     }
 
     /**
@@ -178,52 +196,44 @@ public class Renderer {
      */
     public void dibujarCirculo(float cx, float cy, float radio, int segmentos,
                                 float r, float g, float b) {
-        // Activar shaders con offset y scale neutros
         glUseProgram(programaShader);
 
-        int locOffset = glGetUniformLocation(programaShader, "offset");
+        // Sin traslación ni escala extra: coords absolutas en píxeles
+        int locOffset = glGetUniformLocation(programaShader, "uOffset");
         glUniform2f(locOffset, 0, 0);
 
-        int locScale = glGetUniformLocation(programaShader, "scale");
+        int locScale = glGetUniformLocation(programaShader, "uScale");
         glUniform2f(locScale, 1, 1);
 
-        int locColor = glGetUniformLocation(programaShader, "color");
+        // Mismo nombre que el ing.: uColor
+        int locColor = glGetUniformLocation(programaShader, "uColor");
         glUniform3f(locColor, r, g, b);
 
         // Calcular vértices del círculo: centro + un punto por segmento + cierre
+        // Cada vértice es vec3 (x, y, z=0) para coincidir con la firma del shader
         int totalVertices = segmentos + 2;
-        float[] verts = new float[totalVertices * 2];
+        float[] verts = new float[totalVertices * 3]; // 3 floats por vértice
 
-        // El primer vértice es el centro del círculo
+        // Primer vértice: centro del círculo
         verts[0] = cx;
         verts[1] = cy;
+        verts[2] = 0.0f; // z = 0
 
-        // Los siguientes vértices forman el borde del círculo
+        // Vértices del borde, distribuidos en ángulos iguales
         for (int i = 0; i <= segmentos; i++) {
-            // Ángulo actual en radianes
             double angulo = 2.0 * Math.PI * i / segmentos;
-            verts[(i + 1) * 2]     = cx + (float)(Math.cos(angulo) * radio);
-            verts[(i + 1) * 2 + 1] = cy + (float)(Math.sin(angulo) * radio);
+            verts[(i + 1) * 3]     = cx + (float)(Math.cos(angulo) * radio);
+            verts[(i + 1) * 3 + 1] = cy + (float)(Math.sin(angulo) * radio);
+            verts[(i + 1) * 3 + 2] = 0.0f; // z = 0
         }
 
-        // Crear VAO/VBO temporal
-        int cirVao = glGenVertexArrays();
-        glBindVertexArray(cirVao);
-
-        int cirVbo = glGenBuffers();
-        glBindBuffer(GL_ARRAY_BUFFER, cirVbo);
+        // Reutilizar el VAO/VBO dinámico igual que en dibujarTriangulo
+        glBindVertexArray(vaoDin);
+        glBindBuffer(GL_ARRAY_BUFFER, vboDin);
         glBufferData(GL_ARRAY_BUFFER, verts, GL_STREAM_DRAW);
-
-        glVertexAttribPointer(0, 2, GL_FLOAT, false, 2 * Float.BYTES, 0);
-        glEnableVertexAttribArray(0);
-
-        // Triangle fan: primer vértice como centro, los demás forman el borde
         glDrawArrays(GL_TRIANGLE_FAN, 0, totalVertices);
-
-        // Limpiar recursos temporales
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
-        glDeleteBuffers(cirVbo);
-        glDeleteVertexArrays(cirVao);
     }
 
     /**
@@ -289,5 +299,7 @@ public class Renderer {
         glDeleteProgram(programaShader);
         glDeleteBuffers(vbo);
         glDeleteVertexArrays(vao);
+        glDeleteBuffers(vboDin);
+        glDeleteVertexArrays(vaoDin);
     }
 }

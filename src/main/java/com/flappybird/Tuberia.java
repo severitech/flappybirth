@@ -9,22 +9,19 @@ package com.flappybird;
  */
 public class Tuberia {
 
-    // Posición X del borde izquierdo de las tuberías (en píxeles)
+    // Posición X del borde izquierdo de las tuberías en NDC
     private float x;
 
-    // Centro Y del hueco entre las dos tuberías (en píxeles)
+    // Centro Y del hueco entre las dos tuberías en NDC
     private final float centroHueco;
 
-    // Altura del hueco libre entre tubería superior e inferior
-    private static final float ALTO_HUECO = 160.0f;
+    // Altura del hueco en NDC — mismo valor que el ing.: GAP_ALTO = 0.48f
+    private static final float ALTO_HUECO = 0.48f;
 
-    // Ancho fijo de ambas tuberías
-    private static final float ANCHO = 60.0f;
+    // Ancho de la tubería en NDC — mismo valor que el ing.: TUBERIA_ANCHO = 0.18f
+    private static final float ANCHO = 0.18f;
 
-    // Altura total de la ventana (para calcular las tuberías)
-    private static final float ALTO_VENTANA = 600.0f;
-
-    // Velocidad de desplazamiento horizontal (negativa = va a la izquierda)
+    // Velocidad de desplazamiento horizontal en NDC/s — igual que el ing.: 0.62f
     private float velocidad;
 
     // Indica si el pájaro 1 ya pasó esta tubería (para no contar el punto dos veces)
@@ -70,18 +67,31 @@ public class Tuberia {
         float r = 0.2f, g = 0.75f, b = 0.2f;
 
         // --- TUBERÍA INFERIOR ---
-        // Va desde el suelo (y=0) hasta el borde inferior del hueco
-        renderer.dibujarRect(x, 0, ANCHO, huecoAbajo, r, g, b);
-
-        // Borde superior de la tubería inferior (cap más ancho)
-        renderer.dibujarRect(x - 5, huecoAbajo - 15, ANCHO + 10, 15, r * 0.8f, g * 0.8f, b * 0.8f);
+        // En NDC: va desde -1.0 (suelo) hasta el borde inferior del hueco.
+        // El ing. calcula: altoInferior = gapBottom + 1.0f, yCentro = -1 + alto/2
+        // Aquí: origen en esquina inferior-izquierda, alto = huecoAbajo - (-1.0)
+        float altoInf = huecoAbajo + 1.0f;
+        renderer.dibujarRect(x, -1.0f, ANCHO, altoInf, r, g, b);
+        // Sombra: franja oscura en el borde derecho de la tubería inferior
+        renderer.dibujarRect(x + ANCHO - 0.018f, -1.0f, 0.018f, altoInf, r * 0.55f, g * 0.55f, b * 0.55f);
+        // Cap inferior
+        renderer.dibujarRect(x - 0.015f, huecoAbajo - 0.012f, ANCHO + 0.030f, 0.012f,
+                             r * 0.8f, g * 0.8f, b * 0.8f);
+        // Sombra del cap inferior
+        renderer.dibujarRect(x - 0.015f + (ANCHO + 0.030f) - 0.018f, huecoAbajo - 0.012f, 0.018f, 0.012f,
+                             r * 0.45f, g * 0.45f, b * 0.45f);
 
         // --- TUBERÍA SUPERIOR ---
-        // Va desde el borde superior del hueco hasta el techo de la ventana
-        renderer.dibujarRect(x, huecoArriba, ANCHO, ALTO_VENTANA - huecoArriba, r, g, b);
-
-        // Borde inferior de la tubería superior (cap más ancho)
-        renderer.dibujarRect(x - 5, huecoArriba, ANCHO + 10, 15, r * 0.8f, g * 0.8f, b * 0.8f);
+        float altoSup = 1.0f - huecoArriba;
+        renderer.dibujarRect(x, huecoArriba, ANCHO, altoSup, r, g, b);
+        // Sombra: franja oscura en el borde derecho de la tubería superior
+        renderer.dibujarRect(x + ANCHO - 0.018f, huecoArriba, 0.018f, altoSup, r * 0.55f, g * 0.55f, b * 0.55f);
+        // Cap superior
+        renderer.dibujarRect(x - 0.015f, huecoArriba, ANCHO + 0.030f, 0.012f,
+                             r * 0.8f, g * 0.8f, b * 0.8f);
+        // Sombra del cap superior
+        renderer.dibujarRect(x - 0.015f + (ANCHO + 0.030f) - 0.018f, huecoArriba, 0.018f, 0.012f,
+                             r * 0.45f, g * 0.45f, b * 0.45f);
     }
 
     /**
@@ -90,8 +100,9 @@ public class Tuberia {
      * @return true si la tubería ya no es visible
      */
     public boolean fueraDePantalla() {
-        // La tubería desaparece cuando su borde derecho cruza el x=0
-        return x + ANCHO < 0;
+        // En NDC: fuera de pantalla cuando el borde derecho pasa el límite izquierdo (-1.3)
+        // Igual que el ing.: t.x + TUBERIA_ANCHO/2 < -1.3f  (adaptado a esquina izq.)
+        return x + ANCHO < -1.3f;
     }
 
     /**

@@ -41,14 +41,14 @@ public class Juego {
     private int puntajeJ1 = 0;
     private int puntajeJ2 = 0;
 
-    // Velocidad actual de las tuberías (aumenta con la dificultad)
-    private float velocidadTuberias = 200.0f;
+    // Velocidad actual de las tuberías en NDC/s — igual que el ing.: 0.62f
+    private float velocidadTuberias = 0.62f;
 
-    // Velocidad base al inicio de cada partida
-    private static final float VELOCIDAD_BASE = 200.0f;
+    // Velocidad base al inicio de cada partida en NDC/s
+    private static final float VELOCIDAD_BASE = 0.62f;
 
-    // Velocidad máxima para que el juego siga siendo jugable
-    private static final float VELOCIDAD_MAXIMA = 500.0f;
+    // Velocidad máxima en NDC/s (proporcional al máximo del ing.)
+    private static final float VELOCIDAD_MAXIMA = 1.5f;
 
     // Nivel actual de dificultad (visible en el HUD y el título de la ventana)
     private int nivel = 1;
@@ -56,41 +56,47 @@ public class Juego {
     // Temporizador para controlar cuándo aparece la siguiente tubería
     private float timerTuberia = 0.0f;
 
-    // Segundos entre la aparición de cada nueva tubería
-    private static final float INTERVALO_TUBERIAS = 2.5f;
+    // Segundos entre tuberías — igual que el ing.: TIEMPO_ENTRE_TUBERIAS = 1.5f
+    private static final float INTERVALO_TUBERIAS = 1.5f;
 
-    // Posición X inicial de las tuberías (fuera de pantalla, a la derecha)
-    private static final float X_SPAWN_TUBERIA = 820.0f;
+    // Spawn de tuberías fuera de pantalla a la derecha — igual que el ing.: 1.2f
+    private static final float X_SPAWN_TUBERIA = 1.2f;
 
-    // Rango vertical permitido para el centro del hueco (para que sea jugable)
-    private static final float HUECO_MIN_Y = 150.0f;
-    private static final float HUECO_MAX_Y = 450.0f;
+    // Rango vertical del centro del hueco en NDC
+    // Igual que el ing.: GAP_MIN_CENTRO = -0.45f, GAP_MAX_CENTRO = 0.45f
+    private static final float HUECO_MIN_Y = -0.45f;
+    private static final float HUECO_MAX_Y =  0.45f;
 
-    // Posiciones iniciales de los dos pájaros
-    private static final float J1_X_INICIO = 150.0f;
-    private static final float J1_Y_INICIO = 300.0f;
-    private static final float J2_X_INICIO = 100.0f;
-    private static final float J2_Y_INICIO = 300.0f;
+    // Posiciones iniciales de los pájaros en NDC
+    // J1: borde izquierdo en x=-0.50 (centro en -0.45, igual que BIRD_X del ing.)
+    // J2: separado a la izquierda para que no se superpongan
+    private static final float J1_X_INICIO = -0.55f;
+    private static final float J1_Y_INICIO = -0.05f;  // centro en 0.0 (mitad de pantalla)
+    private static final float J2_X_INICIO = -0.68f;
+    private static final float J2_Y_INICIO = -0.05f;
 
     // Bandera para reproducir el sonido de game over una sola vez
     private boolean sonidoGameOverReproducido = false;
 
-    // --- Nube parallax: cada nube tiene su propio X, Y, ancho y velocidad ---
+    // --- Nube parallax en NDC: cada nube tiene X, Y, ancho, alto y velocidad ---
+    // Conversión de píxeles a NDC: x_ndc = x_px/400-1, y_ndc = y_px/300-1
+    //                               w_ndc = w_px/400,   h_ndc = h_px/300
+    //                               vel_ndc = vel_px/400
 
-    // Posiciones X de las nubes (se actualizan en cada frame para efecto parallax)
-    private final float[] nubesPosX = {100f, 300f, 600f, 50f, 450f};
+    // Posiciones X iniciales en NDC (actualizadas cada frame)
+    private final float[] nubesPosX = {-0.75f, -0.25f, 0.50f, -0.875f, 0.125f};
 
-    // Posiciones Y fijas de cada nube (no cambian)
-    private final float[] nubesPosY = {490f, 525f, 500f, 510f, 515f};
+    // Posiciones Y fijas en NDC
+    private final float[] nubesPosY = {0.633f, 0.750f, 0.667f, 0.700f, 0.717f};
 
-    // Anchos de cada nube para variedad visual
-    private final float[] nubesAncho = {80f, 105f, 90f, 70f, 115f};
+    // Anchos en NDC
+    private final float[] nubesAncho = {0.200f, 0.263f, 0.225f, 0.175f, 0.288f};
 
-    // Alturas de cada nube para variedad visual
-    private final float[] nubesAlto  = {22f, 18f, 25f, 20f, 16f};
+    // Altos en NDC
+    private final float[] nubesAlto  = {0.073f, 0.060f, 0.083f, 0.067f, 0.053f};
 
-    // Velocidades individuales de cada nube (efecto parallax)
-    private final float[] nubesVel   = {20f, 25f, 18f, 22f, 28f};
+    // Velocidades en NDC/s (efecto parallax: distintas velocidades por nube)
+    private final float[] nubesVel   = {0.050f, 0.063f, 0.045f, 0.055f, 0.070f};
 
     /**
      * Constructor: inicializa los jugadores, la lista de tuberías y el estado inicial.
@@ -214,8 +220,8 @@ public class Juego {
             nubesPosX[i] -= nubesVel[i] * deltaTime;
 
             // Si la nube salió completamente por la izquierda, reaparece por la derecha
-            if (nubesPosX[i] + nubesAncho[i] < 0) {
-                nubesPosX[i] = 820f;   // Reaparece fuera del borde derecho
+            if (nubesPosX[i] + nubesAncho[i] < -1.0f) {
+                nubesPosX[i] = 1.05f;  // Reaparece fuera del borde derecho en NDC
             }
         }
     }
@@ -227,77 +233,65 @@ public class Juego {
      * @param renderer Renderer para dibujar primitivas OpenGL
      */
     public void dibujar(Renderer renderer) {
-        // === 1. CIELO (fondo degradado simulado con dos rectángulos) ===
+        // === 1. CIELO en NDC ===
+        // Mitad superior: azul claro  (y de 0 a +1)
+        renderer.dibujarRect(-1f, 0f, 2f, 1f, 0.40f, 0.70f, 1.00f);
+        // Mitad inferior: azul oscuro (y de -1 a 0)
+        renderer.dibujarRect(-1f, -1f, 2f, 1f, 0.30f, 0.55f, 0.90f);
 
-        // Mitad superior del cielo: azul más claro (luz del sol)
-        renderer.dibujarRect(0, 300, 800, 300, 0.40f, 0.70f, 1.00f);
+        // === 2. MONTAÑAS en NDC ===
+        // Conversión: x_ndc = x_px/400-1  |  y_ndc = y_px/300-1
 
-        // Mitad inferior del cielo: azul más oscuro (horizonte)
-        renderer.dibujarRect(0, 0,   800, 300, 0.30f, 0.55f, 0.90f);
-
-        // === 2. MONTAÑAS (triángulos marrones/grises en el horizonte) ===
-        // Las montañas quedan detrás de las nubes y las tuberías
-
-        // Montaña 1: marrón oscuro, extremo izquierdo
+        // Montaña 1 — marrón oscuro
         renderer.dibujarTriangulo(
-            -20f,  30f,    // Vértice inferior-izquierdo (fuera de pantalla)
-            130f,  165f,   // Pico de la montaña
-            280f,  30f,    // Vértice inferior-derecho
-            0.38f, 0.32f, 0.28f  // Color marrón oscuro
+            -1.050f, -0.900f,   // (-20px, 30px)
+             -0.675f, -0.450f,  // (130px, 165px) pico
+             -0.300f, -0.900f,  // (280px, 30px)
+            0.38f, 0.32f, 0.28f
+        );
+        // Montaña 2 — gris marrón
+        renderer.dibujarTriangulo(
+            -0.450f, -0.900f,   // (220px, 30px)
+             -0.050f, -0.367f,  // (380px, 190px) pico
+              0.350f, -0.900f,  // (540px, 30px)
+            0.32f, 0.28f, 0.26f
+        );
+        // Montaña 3 — marrón claro
+        renderer.dibujarTriangulo(
+             0.150f, -0.900f,   // (460px, 30px)
+             0.500f, -0.533f,   // (600px, 140px) pico
+             0.850f, -0.900f,   // (740px, 30px)
+            0.42f, 0.36f, 0.30f
+        );
+        // Montaña 4 — gris oscuro (borde derecho)
+        renderer.dibujarTriangulo(
+             0.700f, -0.900f,   // (680px, 30px)
+             1.050f, -0.417f,   // (820px, 175px) pico
+             1.400f, -0.900f,   // (960px, 30px)
+            0.35f, 0.30f, 0.27f
         );
 
-        // Montaña 2: gris azulado, segunda desde la izquierda (más alta)
-        renderer.dibujarTriangulo(
-            220f,  30f,    // Vértice inferior-izquierdo
-            380f,  190f,   // Pico de la montaña
-            540f,  30f,    // Vértice inferior-derecho
-            0.32f, 0.28f, 0.26f  // Color gris-marrón
-        );
-
-        // Montaña 3: marrón claro, centro
-        renderer.dibujarTriangulo(
-            460f,  30f,    // Vértice inferior-izquierdo
-            600f,  140f,   // Pico de la montaña (más baja)
-            740f,  30f,    // Vértice inferior-derecho
-            0.42f, 0.36f, 0.30f  // Color marrón claro
-        );
-
-        // Montaña 4: gris, extremo derecho (parcialmente fuera de pantalla)
-        renderer.dibujarTriangulo(
-            680f,  30f,    // Vértice inferior-izquierdo
-            820f,  175f,   // Pico de la montaña
-            960f,  30f,    // Vértice inferior-derecho (fuera de pantalla)
-            0.35f, 0.30f, 0.27f  // Color gris oscuro
-        );
-
-        // === 3. NUBES PARALLAX (rectángulos blancos que se mueven lentamente) ===
+        // === 3. NUBES PARALLAX en NDC ===
         for (int i = 0; i < nubesPosX.length; i++) {
-            // Dibujar cada nube con su posición y tamaño propios
             renderer.dibujarRect(
-                nubesPosX[i],           // Posición X actual (se actualiza en actualizar)
-                nubesPosY[i],           // Posición Y fija
-                nubesAncho[i],          // Ancho individual de la nube
-                nubesAlto[i],           // Alto individual de la nube
-                0.95f, 0.95f, 0.98f     // Blanco ligeramente azulado
+                nubesPosX[i], nubesPosY[i], nubesAncho[i], nubesAlto[i],
+                0.95f, 0.95f, 0.98f
             );
-
-            // Dibujar un segundo rectángulo más pequeño encima para dar volumen
+            // Capa superior de la nube para efecto de volumen
             renderer.dibujarRect(
-                nubesPosX[i] + nubesAncho[i] * 0.15f,  // Un poco hacia adentro en X
-                nubesPosY[i] + nubesAlto[i] * 0.5f,    // Sobre la nube base
-                nubesAncho[i] * 0.60f,                  // Más estrecho que la base
-                nubesAlto[i] * 0.70f,                   // Un poco menos alto
-                0.98f, 0.98f, 1.00f                     // Blanco puro arriba
+                nubesPosX[i] + nubesAncho[i] * 0.15f,
+                nubesPosY[i] + nubesAlto[i] * 0.5f,
+                nubesAncho[i] * 0.60f,
+                nubesAlto[i] * 0.70f,
+                0.98f, 0.98f, 1.00f
             );
         }
 
-        // === 4. SUELO (banda verde/marrón en la base de la pantalla) ===
-
-        // Franja verde que simula el suelo
-        renderer.dibujarRect(0, 0, 800, 30, 0.35f, 0.58f, 0.18f);
-
-        // Línea oscura en el borde superior del suelo para dar contraste
-        renderer.dibujarRect(0, 28, 800, 4, 0.25f, 0.42f, 0.12f);
+        // === 4. SUELO en NDC ===
+        // 30px alto → 30*(2/600) = 0.10 NDC  |  desde y=-1.0 hasta y=-0.90
+        renderer.dibujarRect(-1f, -1.0f,  2f, 0.100f, 0.35f, 0.58f, 0.18f);
+        // Línea de contraste: 4px → 0.013 NDC  |  28px → y=-0.907
+        renderer.dibujarRect(-1f, -0.907f, 2f, 0.013f, 0.25f, 0.42f, 0.12f);
 
         // === 5. ELEMENTOS DE JUEGO (según el estado actual) ===
 
@@ -331,41 +325,39 @@ public class Juego {
      * @param renderer Renderer para dibujar primitivas
      */
     private void dibujarMenu(Renderer renderer) {
-        // Panel de fondo del menú: rectángulo oscuro semitransparente simulado
-        renderer.dibujarRect(150, 170, 500, 260, 0.05f, 0.05f, 0.20f);
+        // Panel fondo — (150,170,500,260)px → NDC: x=-0.625, y=-0.433, w=1.25, h=0.867
+        renderer.dibujarRect(-0.625f, -0.433f, 1.25f, 0.867f, 0.05f, 0.05f, 0.20f);
+        // Borde interior — (155,175,490,250)px → x=-0.6125, y=-0.417, w=1.225, h=0.833
+        renderer.dibujarRect(-0.6125f, -0.417f, 1.225f, 0.833f, 0.10f, 0.10f, 0.35f);
 
-        // Borde interior del panel (ligeramente más claro para efecto de borde)
-        renderer.dibujarRect(155, 175, 490, 250, 0.10f, 0.10f, 0.35f);
-
-        // Título "FLAPPY BIRD" en amarillo, centrado horizontalmente
+        // Título "FLAPPY BIRD" — y=370px → y_ndc=0.233, centrado en x=0
         float anchoTitulo = TextoPixel.anchoTexto("FLAPPY BIRD", 2);
         TextoPixel.dibujar(renderer, "FLAPPY BIRD",
-            400 - anchoTitulo / 2, 370, 2,        // Centrado en X, alto en Y
-            1.0f, 1.0f, 0.2f);                     // Color amarillo brillante
+            -anchoTitulo / 2, 0.233f, 2,
+            1.0f, 1.0f, 0.2f);
 
-        // Subtítulo "2 JUGADORES" en blanco, tamaño normal
+        // "2 JUGADORES" — y=335px → y_ndc=0.117
         float anchoSub = TextoPixel.anchoTexto("2 JUGADORES", 1);
         TextoPixel.dibujar(renderer, "2 JUGADORES",
-            400 - anchoSub / 2, 335, 1,
-            0.9f, 0.9f, 0.9f);                     // Blanco suave
+            -anchoSub / 2, 0.117f, 1,
+            0.9f, 0.9f, 0.9f);
 
-        // Instrucción del jugador 1 en color amarillo (mismo que su pájaro)
+        // "J1: ESPACIO" — (175,305)px → x=-0.5625, y=0.017
         TextoPixel.dibujar(renderer, "J1: ESPACIO",
-            175, 305, 1,
-            1.0f, 0.8f, 0.0f);                     // Amarillo = color de J1
+            -0.5625f, 0.017f, 1,
+            1.0f, 0.8f, 0.0f);
 
-        // Instrucción del jugador 2 en color azul (mismo que su pájaro)
+        // "J2: W O ARRIBA" — (175,280)px → x=-0.5625, y=-0.067
         TextoPixel.dibujar(renderer, "J2: W O ARRIBA",
-            175, 280, 1,
-            0.3f, 0.7f, 1.0f);                     // Azul = color de J2
+            -0.5625f, -0.067f, 1,
+            0.3f, 0.7f, 1.0f);
 
-        // Instrucción para iniciar la partida en verde
+        // "ENTER: INICIAR" — y=210px → y_ndc=-0.300, centrado
         float anchoEnter = TextoPixel.anchoTexto("ENTER: INICIAR", 1);
         TextoPixel.dibujar(renderer, "ENTER: INICIAR",
-            400 - anchoEnter / 2, 210, 1,
-            0.3f, 1.0f, 0.3f);                     // Verde para llamar la atención
+            -anchoEnter / 2, -0.300f, 1,
+            0.3f, 1.0f, 0.3f);
 
-        // Mostrar los pájaros de muestra en sus posiciones iniciales
         jugador1.dibujar(renderer);
         jugador2.dibujar(renderer);
     }
@@ -376,33 +368,31 @@ public class Juego {
      * @param renderer Renderer para dibujar primitivas y texto
      */
     private void dibujarHUD(Renderer renderer) {
-        // Barra superior negra como fondo del HUD (evita que el texto se confunda)
-        renderer.dibujarRect(0, 565, 800, 35, 0.0f, 0.0f, 0.0f);
+        // Barra HUD superior — (0,565,800,35)px → NDC: x=-1, y=0.883, w=2, h=0.117
+        renderer.dibujarRect(-1f, 0.883f, 2f, 0.117f, 0.0f, 0.0f, 0.0f);
 
-        // Puntaje del jugador 1 en amarillo (igual a su color de pájaro)
-        TextoPixel.dibujar(renderer,
-            "J1:" + puntajeJ1,
-            10, 572, 1,
-            1.0f, 0.8f, 0.0f);             // Amarillo
+        // Texto y_ndc = 572px → 572/300-1 = 0.907
+        // J1 — x=10px → -0.975
+        TextoPixel.dibujar(renderer, "J1:" + puntajeJ1,
+            -0.975f, 0.907f, 1,
+            1.0f, 0.8f, 0.0f);
 
-        // Puntaje del jugador 2 en azul (igual a su color de pájaro)
-        TextoPixel.dibujar(renderer,
-            "J2:" + puntajeJ2,
-            120, 572, 1,
-            0.3f, 0.7f, 1.0f);             // Azul
+        // J2 — x=120px → -0.700
+        TextoPixel.dibujar(renderer, "J2:" + puntajeJ2,
+            -0.700f, 0.907f, 1,
+            0.3f, 0.7f, 1.0f);
 
-        // Nivel actual en verde, centrado en la barra HUD
+        // Nivel — centrado en x=0
         String textoNivel = "NIVEL:" + nivel;
         float anchoNivel = TextoPixel.anchoTexto(textoNivel, 1);
-        TextoPixel.dibujar(renderer,
-            textoNivel,
-            400 - anchoNivel / 2, 572, 1,
-            0.2f, 1.0f, 0.2f);             // Verde brillante
+        TextoPixel.dibujar(renderer, textoNivel,
+            -anchoNivel / 2, 0.907f, 1,
+            0.2f, 1.0f, 0.2f);
 
-        // Atajo ESC a la derecha de la barra HUD
+        // ESC — x=590px → 0.475
         TextoPixel.dibujar(renderer, "ESC:SALIR",
-            590, 572, 1,
-            0.7f, 0.7f, 0.7f);             // Gris
+            0.475f, 0.907f, 1,
+            0.7f, 0.7f, 0.7f);
     }
 
     /**
@@ -411,55 +401,51 @@ public class Juego {
      * @param renderer Renderer para dibujar primitivas y texto
      */
     private void dibujarGameOver(Renderer renderer) {
-        // Panel oscuro de fondo para la pantalla de game over
-        renderer.dibujarRect(150, 160, 500, 280, 0.05f, 0.05f, 0.15f);
+        // Panel fondo — (150,160,500,280)px → x=-0.625, y=-0.467, w=1.25, h=0.933
+        renderer.dibujarRect(-0.625f, -0.467f, 1.25f, 0.933f, 0.05f, 0.05f, 0.15f);
+        // Borde — (155,165,490,270)px → x=-0.6125, y=-0.450, w=1.225, h=0.900
+        renderer.dibujarRect(-0.6125f, -0.450f, 1.225f, 0.900f, 0.08f, 0.08f, 0.25f);
 
-        // Borde interior del panel
-        renderer.dibujarRect(155, 165, 490, 270, 0.08f, 0.08f, 0.25f);
-
-        // Título "GAME OVER" en rojo, grande y centrado
+        // "GAME OVER" — y=385px → 0.283, centrado
         float anchoGO = TextoPixel.anchoTexto("GAME OVER", 2);
         TextoPixel.dibujar(renderer, "GAME OVER",
-            400 - anchoGO / 2, 385, 2,
-            1.0f, 0.15f, 0.15f);           // Rojo intenso
+            -anchoGO / 2, 0.283f, 2,
+            1.0f, 0.15f, 0.15f);
 
-        // Puntaje final del jugador 1 en su color amarillo
-        TextoPixel.dibujar(renderer,
-            "J1: " + puntajeJ1 + " PUNTOS",
-            175, 335, 1,
-            1.0f, 0.8f, 0.0f);             // Amarillo
+        // "J1: X PUNTOS" — (175,335)px → x=-0.5625, y=0.117
+        TextoPixel.dibujar(renderer, "J1: " + puntajeJ1 + " PUNTOS",
+            -0.5625f, 0.117f, 1,
+            1.0f, 0.8f, 0.0f);
 
-        // Puntaje final del jugador 2 en su color azul
-        TextoPixel.dibujar(renderer,
-            "J2: " + puntajeJ2 + " PUNTOS",
-            175, 310, 1,
-            0.3f, 0.7f, 1.0f);             // Azul
+        // "J2: X PUNTOS" — (175,310)px → x=-0.5625, y=0.033
+        TextoPixel.dibujar(renderer, "J2: " + puntajeJ2 + " PUNTOS",
+            -0.5625f, 0.033f, 1,
+            0.3f, 0.7f, 1.0f);
 
-        // Determinar quién ganó y asignar el texto y color apropiados
         String ganador;
         float gr, gg, gb;
         if (puntajeJ1 > puntajeJ2) {
             ganador = "GANA J1!";
-            gr = 1.0f; gg = 0.8f; gb = 0.0f;   // Color del J1 (amarillo)
+            gr = 1.0f; gg = 0.8f; gb = 0.0f;
         } else if (puntajeJ2 > puntajeJ1) {
             ganador = "GANA J2!";
-            gr = 0.3f; gg = 0.7f; gb = 1.0f;   // Color del J2 (azul)
+            gr = 0.3f; gg = 0.7f; gb = 1.0f;
         } else {
             ganador = "EMPATE!";
-            gr = 1.0f; gg = 1.0f; gb = 1.0f;   // Blanco para empate
+            gr = 1.0f; gg = 1.0f; gb = 1.0f;
         }
 
-        // Mostrar al ganador centrado y grande
+        // Ganador — y=262px → -0.127, centrado
         float anchoGanador = TextoPixel.anchoTexto(ganador, 2);
         TextoPixel.dibujar(renderer, ganador,
-            400 - anchoGanador / 2, 262, 2,
+            -anchoGanador / 2, -0.127f, 2,
             gr, gg, gb);
 
-        // Instrucción para volver al menú en verde
+        // "ENTER: MENU" — y=197px → -0.343, centrado
         float anchoVolver = TextoPixel.anchoTexto("ENTER: MENU", 1);
         TextoPixel.dibujar(renderer, "ENTER: MENU",
-            400 - anchoVolver / 2, 197, 1,
-            0.3f, 1.0f, 0.3f);             // Verde
+            -anchoVolver / 2, -0.343f, 1,
+            0.3f, 1.0f, 0.3f);
     }
 
     /**
@@ -478,20 +464,22 @@ public class Juego {
      * Si un pájaro toca el suelo o el techo, muere.
      */
     private void verificarLimitesPantalla() {
-        // Límite inferior: el suelo tiene 30px de alto (dibujado en dibujar())
-        if (jugador1.estaVivo() && jugador1.getY() < 30) {
-            jugador1.morir();   // J1 tocó el suelo
+        // Límite inferior en NDC: -0.90 = tope de la franja verde del suelo
+        // Equivale a birdBottom <= -1.0f del ing. (ajustado por nuestro suelo visual)
+        if (jugador1.estaVivo() && jugador1.getY() < -0.90f) {
+            jugador1.morir();
         }
-        if (jugador2.estaVivo() && jugador2.getY() < 30) {
-            jugador2.morir();   // J2 tocó el suelo
+        if (jugador2.estaVivo() && jugador2.getY() < -0.90f) {
+            jugador2.morir();
         }
 
-        // Límite superior: la barra HUD empieza en y=565
-        if (jugador1.estaVivo() && jugador1.getY() + jugador1.getAlto() > 565) {
-            jugador1.morir();   // J1 tocó el techo
+        // Límite superior en NDC: 0.883 = borde inferior de la barra HUD
+        // Igual que el ing.: birdTop >= 1.0f (adaptado al HUD)
+        if (jugador1.estaVivo() && jugador1.getY() + jugador1.getAlto() > 0.883f) {
+            jugador1.morir();
         }
-        if (jugador2.estaVivo() && jugador2.getY() + jugador2.getAlto() > 565) {
-            jugador2.morir();   // J2 tocó el techo
+        if (jugador2.estaVivo() && jugador2.getY() + jugador2.getAlto() > 0.883f) {
+            jugador2.morir();
         }
     }
 
@@ -511,7 +499,8 @@ public class Juego {
             nivel = nuevoNivel;   // Actualizar el nivel mostrado en el HUD
 
             // Nueva velocidad = base + incremento por nivel, sin exceder el máximo
-            velocidadTuberias = Math.min(VELOCIDAD_BASE + (nivel - 1) * 50, VELOCIDAD_MAXIMA);
+            // Incremento de 0.125 NDC/s por nivel (≈50px/s * 2/800)
+        velocidadTuberias = Math.min(VELOCIDAD_BASE + (nivel - 1) * 0.125f, VELOCIDAD_MAXIMA);
 
             // Actualizar la velocidad de todas las tuberías ya en pantalla
             for (Tuberia t : tuberias) {

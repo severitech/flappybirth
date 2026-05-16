@@ -9,14 +9,17 @@ package com.flappybird;
  */
 public class TextoPixel {
 
-    // Tamaño de cada "píxel" del carácter en píxeles reales de pantalla
-    private static final int TAM_PIXEL = 3;
+    // Tamaño de un "píxel" del font en NDC, separado en X e Y porque la ventana
+    // (800x600) no es cuadrada: 1px_x = 2/800 = 0.0025, 1px_y = 2/600 = 0.00333
+    // Usamos 3 píxeles reales por punto de font (mismo TAM_PIXEL = 3 que antes)
+    private static final float PIX_X = 3 * (2.0f / 800); // = 0.0075f por dot
+    private static final float PIX_Y = 3 * (2.0f / 600); // = 0.0100f por dot
 
-    // Ancho y alto de cada carácter en píxeles del font (antes de escalar)
+    // Ancho y alto de cada carácter en dots del font (sin cambio)
     private static final int CHAR_W = 5;
     private static final int CHAR_H = 7;
 
-    // Separación entre caracteres
+    // Separación entre caracteres en dots
     private static final int ESPACIADO = 2;
 
     /**
@@ -32,7 +35,9 @@ public class TextoPixel {
     public static void dibujar(Renderer renderer, String texto,
                                 float x, float y, float escala,
                                 float r, float g, float b) {
-        int px = TAM_PIXEL * (int) escala;
+        // Tamaño de un dot en NDC para esta escala (X e Y separados por aspect ratio)
+        float dotX = PIX_X * escala;
+        float dotY = PIX_Y * escala;
         float cursorX = x;
 
         for (char c : texto.toUpperCase().toCharArray()) {
@@ -41,25 +46,27 @@ public class TextoPixel {
                 for (int fila = 0; fila < CHAR_H; fila++) {
                     for (int col = 0; col < CHAR_W; col++) {
                         if (mapa[fila * CHAR_W + col] == 1) {
-                            float px2 = cursorX + col * px;
-                            // Invertir fila para que la base quede abajo
-                            float py2 = y + (CHAR_H - 1 - fila) * px;
-                            renderer.dibujarRect(px2, py2, px, px, r, g, b);
+                            // Posición en NDC: cursor + columna * dotX
+                            float px2 = cursorX + col * dotX;
+                            // Invertir fila para que la base quede abajo (igual que antes)
+                            float py2 = y + (CHAR_H - 1 - fila) * dotY;
+                            // Cada dot es un rect de dotX × dotY en NDC
+                            renderer.dibujarRect(px2, py2, dotX, dotY, r, g, b);
                         }
                     }
                 }
             }
-            // Avanzar cursor al siguiente carácter
-            cursorX += (CHAR_W + ESPACIADO) * px;
+            // Avanzar cursor: (CHAR_W + ESPACIADO) dots en X
+            cursorX += (CHAR_W + ESPACIADO) * dotX;
         }
     }
 
     /**
-     * Calcula el ancho total en píxeles de pantalla de un texto
+     * Calcula el ancho total en NDC de un texto para esta escala
      */
     public static float anchoTexto(String texto, float escala) {
-        int px = TAM_PIXEL * (int) escala;
-        return texto.length() * (CHAR_W + ESPACIADO) * px;
+        float dotX = PIX_X * escala;
+        return texto.length() * (CHAR_W + ESPACIADO) * dotX;
     }
 
     /**

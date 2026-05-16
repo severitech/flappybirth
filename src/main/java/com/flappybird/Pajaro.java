@@ -18,24 +18,32 @@ public class Pajaro {
     // Velocidad vertical en píxeles por segundo (positiva = sube, negativa = baja)
     private float velocidadY;
 
-    // Dimensiones del cuerpo principal del pájaro
-    private final float ancho = 40.0f;
-    private final float alto  = 30.0f;
+    // Dimensiones del cuerpo principal del pájaro en NDC
+    // Igual que el ing.: BIRD_ANCHO = 0.10f, BIRD_ALTO = 0.10f
+    private final float ancho = 0.10f;
+    private final float alto  = 0.10f;
 
     // Indica si el pájaro está vivo (puede moverse) o muerto (se queda quieto)
     private boolean vivo;
 
+    // Indica si el pájaro muerto está en animación de caída al suelo
+    private boolean cayendo;
+
     // Color distintivo del pájaro (RGB) para diferenciarlo del otro jugador
     private final float colorR, colorG, colorB;
 
-    // Constante de gravedad: cuántos píxeles por segundo cuadrado cae el pájaro
-    private static final float GRAVEDAD = -800.0f;
+    // Gravedad en NDC/s² — mismo valor que el ing.: -1.9f
+    private static final float GRAVEDAD = -1.9f;
 
-    // Velocidad vertical al saltar (positiva porque sube)
-    private static final float VELOCIDAD_SALTO = 350.0f;
+    // Velocidad de salto en NDC/s — mismo valor que el ing.: 0.85f
+    private static final float VELOCIDAD_SALTO = 0.85f;
 
-    // Velocidad máxima de caída para evitar que atraviese el suelo
-    private static final float VELOCIDAD_MAX_CAIDA = -600.0f;
+    // Velocidad máxima de caída en NDC/s — mismo valor que el ing.: -1.8f
+    private static final float VELOCIDAD_MAX_CAIDA = -1.8f;
+
+    // Límite del suelo en NDC: tope superior de la franja verde (y = -0.90)
+    // Equivale a 30px en una ventana de 600px: 30/300 - 1 = -0.90
+    private static final float SUELO_NDC = -0.90f;
 
     // Temporizador para animar el ala (oscila entre arriba y abajo)
     private float tiempoAla = 0.0f;
@@ -65,8 +73,21 @@ public class Pajaro {
      * @param deltaTime Tiempo transcurrido desde el último frame (en segundos)
      */
     public void actualizar(float deltaTime) {
-        // Si el pájaro está muerto, no actualizar física
-        if (!vivo) return;
+        if (!vivo) {
+            // Animación de caída al morir: aplica la misma gravedad del ing. hasta el suelo
+            if (cayendo) {
+                velocidadY += GRAVEDAD * deltaTime;
+                if (velocidadY < VELOCIDAD_MAX_CAIDA) velocidadY = VELOCIDAD_MAX_CAIDA;
+                y += velocidadY * deltaTime;
+                // Detener en el suelo (NDC: -0.90 = tope de la franja verde)
+                if (y <= SUELO_NDC) {
+                    y = SUELO_NDC;
+                    velocidadY = 0;
+                    cayendo = false;
+                }
+            }
+            return;
+        }
 
         // Aplicar gravedad: la velocidad vertical disminuye con el tiempo
         velocidadY += GRAVEDAD * deltaTime;
@@ -114,10 +135,9 @@ public class Pajaro {
         // Limitar el factor a [-1, 1] para que la inclinación no sea excesiva
         factorTilt = Math.max(-1.0f, Math.min(1.0f, factorTilt));
 
-        // Convertir el factor a píxeles de desplazamiento (máximo ±10 px)
-        // Positivo = pico sube (pájaro apunta hacia arriba)
-        // Negativo = pico baja (pájaro apunta hacia abajo)
-        float inclinacion = factorTilt * 10.0f;
+        // Desplazamiento máximo de inclinación en NDC
+        // 10px * (2/600) ≈ 0.033 NDC — escala con el tamaño del pájaro en NDC
+        float inclinacion = factorTilt * 0.033f;
 
         // --- COLA (triángulo en el lado izquierdo del cuerpo) ---
         // La cola se desplaza en dirección opuesta al pico para simular rotación
@@ -135,7 +155,8 @@ public class Pajaro {
 
         // --- ALA (rectángulo pequeño que sube y baja para simular aleteo) ---
         // El offset vertical del ala oscila con función seno para el efecto de vuelo
-        float offsetAla = (float) Math.sin(tiempoAla) * 4.0f;
+        // 4px * (2/600) ≈ 0.013f NDC — era 4.0f en píxeles, causaba el cuadrado errante
+        float offsetAla = (float) Math.sin(tiempoAla) * 0.013f;
         renderer.dibujarRect(
             x + ancho * 0.2f,           // Posición X: un poco hacia dentro del cuerpo
             y + alto * 0.4f + offsetAla, // Posición Y: centro del cuerpo + animación
@@ -158,19 +179,24 @@ public class Pajaro {
         // El ojo sigue al pico, desplazándose 80% de la inclinación del pico
         float ojoCX = x + ancho * 0.7f;          // Centro X del ojo
         float ojoCY = y + alto * 0.7f + inclinacion * 0.8f;  // Centro Y con inclinación
-        renderer.dibujarCirculo(ojoCX, ojoCY, 6.0f, 16, 1.0f, 1.0f, 1.0f);
+        // Radio del ojo en NDC: 6px * (2/600) ≈ 0.020f
+        renderer.dibujarCirculo(ojoCX, ojoCY, 0.020f, 16, 1.0f, 1.0f, 1.0f);
 
         // --- PUPILA (círculo negro pequeño dentro del ojo blanco) ---
-        // La pupila se desplaza ligeramente hacia adelante (dirección del movimiento)
-        renderer.dibujarCirculo(ojoCX + 1.5f, ojoCY - 0.5f, 3.0f, 12, 0.0f, 0.0f, 0.0f);
+        // Radio en NDC: 3px * (2/600) ≈ 0.010f
+        // Offset X: 1.5px * (2/800) ≈ 0.004f  |  Offset Y: 0.5px * (2/600) ≈ 0.002f
+        renderer.dibujarCirculo(ojoCX + 0.004f, ojoCY - 0.002f, 0.010f, 12, 0.0f, 0.0f, 0.0f);
     }
 
     /**
      * Mata al pájaro: detiene su movimiento y se dibujará en gris.
      */
     public void morir() {
-        vivo = false;      // Marcar como muerto
-        velocidadY = 0;    // Detener movimiento vertical
+        vivo = false;
+        cayendo = true;
+        // Impulso inicial hacia abajo para iniciar la animación de caída
+        // Impulso inicial en NDC/s — mismo rango de velocidad que el ing. al caer
+        if (velocidadY > -0.3f) velocidadY = -0.3f;
     }
 
     /**
@@ -184,6 +210,7 @@ public class Pajaro {
         this.y = y;            // Restaurar posición Y
         this.velocidadY = 0;   // Sin velocidad inicial
         this.vivo = true;      // Volver a vivir
+        this.cayendo = false;  // No está en caída de muerte
         this.tiempoAla = 0;    // Reiniciar animación del ala
     }
 

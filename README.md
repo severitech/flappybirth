@@ -16,26 +16,26 @@ Implementación del juego clásico Flappy Bird con soporte para **dos jugadores 
 | Iniciar / Menú | `ENTER` | `ENTER` |
 | Salir | `ESC` | `ESC` |
 
-## Jugar sin instalar nada (solo Java 21)
+## Jugar sin instalar nada (solo Java 17)
 
-Si solo quieres jugar sin clonar el repositorio ni instalar Maven, descarga y ejecuta el JAR directamente:
+Si solo quieres jugar sin clonar el repositorio ni instalar Maven, descarga el JAR directamente desde GitHub y ejecútalo:
 
 ```bash
-curl -L -o flappy-bird.jar https://github.com/severitech/flappybirth/releases/download/v1.0/flappy-bird-1.0.jar && java -jar flappy-bird.jar
+curl -L -o flappy-bird.jar https://raw.githubusercontent.com/severitech/flappybirth/main/flappy-bird-1.0.jar && java -jar flappy-bird.jar
 ```
 
 O en dos pasos:
 
 ```bash
 # 1. Descargar el JAR
-curl -L -o flappy-bird.jar https://github.com/severitech/flappybirth/releases/download/v1.0/flappy-bird-1.0.jar
+curl -L -o flappy-bird.jar https://raw.githubusercontent.com/severitech/flappybirth/main/flappy-bird-1.0.jar
 
 # 2. Ejecutar
 java -jar flappy-bird.jar
 ```
 
-> **Requisito:** Java 21 o superior. Verificá tu versión con `java -version`.  
-> Descarga Java 21: https://adoptium.net
+> **Requisito:** Java 17 o superior. Verificá tu versión con `java -version`.  
+> Descarga Java 17: https://adoptium.net
 
 ---
 
@@ -43,7 +43,7 @@ java -jar flappy-bird.jar
 
 ### Requisitos previos
 
-- Java 21 o superior
+- Java 17 o superior
 - Maven 3.6 o superior
 
 ### Ejecutar directamente

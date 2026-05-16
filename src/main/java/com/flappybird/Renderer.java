@@ -1,12 +1,42 @@
 package com.flappybird;
 
-import org.lwjgl.opengl.GL33;
-import org.lwjgl.system.MemoryStack;
-
-import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
-
-import static org.lwjgl.opengl.GL33.*;
+import static org.lwjgl.opengl.GL11.GL_FALSE;
+import static org.lwjgl.opengl.GL11.GL_FLOAT;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLES;
+import static org.lwjgl.opengl.GL11.GL_TRIANGLE_FAN;
+import static org.lwjgl.opengl.GL11.glDrawArrays;
+import static org.lwjgl.opengl.GL15.GL_ARRAY_BUFFER;
+import static org.lwjgl.opengl.GL15.GL_STATIC_DRAW;
+import static org.lwjgl.opengl.GL15.GL_STREAM_DRAW;
+import static org.lwjgl.opengl.GL15.glBindBuffer;
+import static org.lwjgl.opengl.GL15.glBufferData;
+import static org.lwjgl.opengl.GL15.glDeleteBuffers;
+import static org.lwjgl.opengl.GL15.glGenBuffers;
+import static org.lwjgl.opengl.GL20.GL_COMPILE_STATUS;
+import static org.lwjgl.opengl.GL20.GL_FRAGMENT_SHADER;
+import static org.lwjgl.opengl.GL20.GL_LINK_STATUS;
+import static org.lwjgl.opengl.GL20.GL_VERTEX_SHADER;
+import static org.lwjgl.opengl.GL20.glAttachShader;
+import static org.lwjgl.opengl.GL20.glCompileShader;
+import static org.lwjgl.opengl.GL20.glCreateProgram;
+import static org.lwjgl.opengl.GL20.glCreateShader;
+import static org.lwjgl.opengl.GL20.glDeleteProgram;
+import static org.lwjgl.opengl.GL20.glDeleteShader;
+import static org.lwjgl.opengl.GL20.glEnableVertexAttribArray;
+import static org.lwjgl.opengl.GL20.glGetProgramInfoLog;
+import static org.lwjgl.opengl.GL20.glGetProgramiv;
+import static org.lwjgl.opengl.GL20.glGetShaderInfoLog;
+import static org.lwjgl.opengl.GL20.glGetShaderiv;
+import static org.lwjgl.opengl.GL20.glGetUniformLocation;
+import static org.lwjgl.opengl.GL20.glLinkProgram;
+import static org.lwjgl.opengl.GL20.glShaderSource;
+import static org.lwjgl.opengl.GL20.glUniform2f;
+import static org.lwjgl.opengl.GL20.glUniform3f;
+import static org.lwjgl.opengl.GL20.glUseProgram;
+import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glDeleteVertexArrays;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
 
 /**
  * Clase Renderer - Encargada de todo el renderizado con OpenGL
@@ -30,15 +60,13 @@ public class Renderer {
     private int vboDin;
 
     // -------------------------------------------------------------------------
-    // VERTEX SHADER - idéntico al del ingeniero (AppFlappyBird)
     //
-    // Entrada : vec3 aPos  — igual que el ing.
-    // Salida  : gl_Position en NDC directo, igual que el ing.
-    // Operación: finalPos = aPos.xy * uScale + uOffset  — igual que el ing.
+    // Entrada : vec3 aPos  —
+    // Salida  : gl_Position en NDC directo,
+    // Operación: finalPos = aPos.xy * uScale + uOffset  —
     //
-    // uOffset y uScale llegan en NDC (-1..1) desde Java, igual que el ing.
+    // uOffset y uScale llegan en NDC (-1..1) desde Java,
     // Ya NO se hace ninguna conversión de píxeles a NDC aquí: todo el juego
-    // trabaja en NDC, igual que el proyecto del ingeniero.
     // -------------------------------------------------------------------------
     private static final String VERTEX_SHADER_SRC =
             "#version 330 core\n" +
@@ -48,7 +76,7 @@ public class Renderer {
             // Tamaño NDC del quad (ancho, alto)
             "uniform vec2 uScale;\n" +
             "void main() {\n" +
-            // Misma línea clave que usa el ing.: escala el quad y lo traslada en NDC
+            // Misma línea clave que usa el : escala el quad y lo traslada en NDC
             "    vec2 finalPos = aPos.xy * uScale + uOffset;\n" +
             "    gl_Position = vec4(finalPos, aPos.z, 1.0);\n" +
             "}\n";
@@ -56,8 +84,8 @@ public class Renderer {
     // -------------------------------------------------------------------------
     // FRAGMENT SHADER - idéntico al del ingeniero (AppFlappyBird)
     //
-    // uColor : vec3 RGB uniforme → mismo nombre y tipo que el ing.
-    // Salida : fragColor con alpha = 1.0 → mismo nombre que el ing.
+    // uColor : vec3 RGB uniforme 
+    // Salida : fragColor con alpha = 1.0 
     // -------------------------------------------------------------------------
     private static final String FRAGMENT_SHADER_SRC =
             "#version 330 core\n" +
@@ -79,8 +107,6 @@ public class Renderer {
         glBindVertexArray(vao);
 
         // Quad base unitario: de 0 a 1 en X e Y, z = 0 siempre.
-        // Igual que el ing. usamos vec3 por vértice (x, y, z) aunque z sea 0,
-        // para que la firma del shader coincida exactamente con la del ing.
         // Dos triángulos (6 vértices) forman el rectángulo reutilizable.
         float[] vertices = {
             0.0f, 0.0f, 0.0f,   // Vértice inferior-izquierdo
@@ -98,7 +124,6 @@ public class Renderer {
         glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
 
         // Indicar a OpenGL cómo leer los datos del VBO:
-        // location=0, 3 floats (vec3 igual que el ing.), sin normalizar,
         // stride=12 bytes (3 floats * 4 bytes), offset=0
         glVertexAttribPointer(0, 3, GL_FLOAT, false, 3 * Float.BYTES, 0);
         glEnableVertexAttribArray(0);
@@ -134,7 +159,6 @@ public class Renderer {
                             float r, float g, float b) {
         glUseProgram(programaShader);
 
-        // Mismos nombres de uniforme que el ing.: uOffset, uScale, uColor
         int locOffset = glGetUniformLocation(programaShader, "uOffset");
         glUniform2f(locOffset, x, y);
 
@@ -171,7 +195,6 @@ public class Renderer {
         int locScale = glGetUniformLocation(programaShader, "uScale");
         glUniform2f(locScale, 1, 1);
 
-        // Mismo nombre de uniforme de color que el ing.: uColor
         int locColor = glGetUniformLocation(programaShader, "uColor");
         glUniform3f(locColor, r, g, b);
 
@@ -205,7 +228,6 @@ public class Renderer {
         int locScale = glGetUniformLocation(programaShader, "uScale");
         glUniform2f(locScale, 1, 1);
 
-        // Mismo nombre que el ing.: uColor
         int locColor = glGetUniformLocation(programaShader, "uColor");
         glUniform3f(locColor, r, g, b);
 

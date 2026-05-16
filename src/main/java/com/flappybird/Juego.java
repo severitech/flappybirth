@@ -43,13 +43,13 @@ public class Juego {
     private int puntajeJ2 = 0;
     private int puntajeJ3 = 0;
 
-    // Velocidad actual de las tuberías en NDC/s — igual que el ing.: 0.62f
+    // Velocidad actual de las tuberías en NDC/s : 0.62f
     private float velocidadTuberias = 0.62f;
 
     // Velocidad base al inicio de cada partida en NDC/s
     private static final float VELOCIDAD_BASE = 0.62f;
 
-    // Velocidad máxima en NDC/s (proporcional al máximo del ing.)
+    // Velocidad máxima en NDC/s 
     private static final float VELOCIDAD_MAXIMA = 1.5f;
 
     // Nivel actual de dificultad (visible en el HUD y el título de la ventana)
@@ -58,19 +58,19 @@ public class Juego {
     // Temporizador para controlar cuándo aparece la siguiente tubería
     private float timerTuberia = 0.0f;
 
-    // Segundos entre tuberías — igual que el ing.: TIEMPO_ENTRE_TUBERIAS = 1.5f
+    // Segundos entre tuberías : TIEMPO_ENTRE_TUBERIAS = 1.5f
     private static final float INTERVALO_TUBERIAS = 1.5f;
 
-    // Spawn de tuberías fuera de pantalla a la derecha — igual que el ing.: 1.2f
+    // Spawn de tuberías fuera de pantalla a la derecha .: 1.2f
     private static final float X_SPAWN_TUBERIA = 1.2f;
 
     // Rango vertical del centro del hueco en NDC
-    // Igual que el ing.: GAP_MIN_CENTRO = -0.45f, GAP_MAX_CENTRO = 0.45f
+    // GAP_MIN_CENTRO = -0.45f, GAP_MAX_CENTRO = 0.45f
     private static final float HUECO_MIN_Y = -0.45f;
     private static final float HUECO_MAX_Y =  0.45f;
 
     // Posiciones iniciales de los pájaros en NDC
-    // J1: borde izquierdo en x=-0.50 (centro en -0.45, igual que BIRD_X del ing.)
+    // J1: borde izquierdo en x=-0.50 
     // J2: separado a la izquierda para que no se superpongan
     private static final float J1_X_INICIO = -0.55f;
     private static final float J1_Y_INICIO = -0.05f;  // centro en 0.0 (mitad de pantalla)
@@ -516,7 +516,7 @@ public class Juego {
      */
     private void verificarLimitesPantalla() {
         // Límite inferior en NDC: -0.90 = tope de la franja verde del suelo
-        // Equivale a birdBottom <= -1.0f del ing. (ajustado por nuestro suelo visual)
+        // Equivale a birdBottom  (ajustado por nuestro suelo visual)
         if (jugador1.estaVivo() && jugador1.getY() < -0.90f) {
             jugador1.morir();
         }
@@ -528,7 +528,7 @@ public class Juego {
         }
 
         // Límite superior en NDC: 0.883 = borde inferior de la barra HUD
-        // Igual que el ing.: birdTop >= 1.0f (adaptado al HUD)
+        // birdTop >= 1.0f (adaptado al HUD)
         if (jugador1.estaVivo() && jugador1.getY() + jugador1.getAlto() > 0.883f) {
             jugador1.morir();
         }

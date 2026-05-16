@@ -19,7 +19,7 @@ public class Pajaro {
     private float velocidadY;
 
     // Dimensiones del cuerpo principal del pájaro en NDC
-    // Igual que el ing.: BIRD_ANCHO = 0.10f, BIRD_ALTO = 0.10f
+    // BIRD_ANCHO = 0.10f, BIRD_ALTO = 0.10f
     private final float ancho = 0.10f;
     private final float alto  = 0.10f;
 
@@ -32,13 +32,13 @@ public class Pajaro {
     // Color distintivo del pájaro (RGB) para diferenciarlo del otro jugador
     private final float colorR, colorG, colorB;
 
-    // Gravedad en NDC/s² — mismo valor que el ing.: -1.9f
+    // Gravedad en NDC/s²  .: -1.9f
     private static final float GRAVEDAD = -1.9f;
 
-    // Velocidad de salto en NDC/s — mismo valor que el ing.: 0.85f
+    // Velocidad de salto en NDC/s : 0.85f
     private static final float VELOCIDAD_SALTO = 0.85f;
 
-    // Velocidad máxima de caída en NDC/s — mismo valor que el ing.: -1.8f
+    // Velocidad máxima de caída en NDC/s: -1.8f
     private static final float VELOCIDAD_MAX_CAIDA = -1.8f;
 
     // Límite del suelo en NDC: tope superior de la franja verde (y = -0.90)
@@ -74,7 +74,7 @@ public class Pajaro {
      */
     public void actualizar(float deltaTime) {
         if (!vivo) {
-            // Animación de caída al morir: aplica la misma gravedad del ing. hasta el suelo
+            // Animación de caída al morir
             if (cayendo) {
                 velocidadY += GRAVEDAD * deltaTime;
                 if (velocidadY < VELOCIDAD_MAX_CAIDA) velocidadY = VELOCIDAD_MAX_CAIDA;
@@ -195,7 +195,7 @@ public class Pajaro {
         vivo = false;
         cayendo = true;
         // Impulso inicial hacia abajo para iniciar la animación de caída
-        // Impulso inicial en NDC/s — mismo rango de velocidad que el ing. al caer
+        // Impulso inicial en NDC/s 
         if (velocidadY > -0.3f) velocidadY = -0.3f;
     }
 

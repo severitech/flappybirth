@@ -15,13 +15,13 @@ public class Tuberia {
     // Centro Y del hueco entre las dos tuberías en NDC
     private final float centroHueco;
 
-    // Altura del hueco en NDC — mismo valor que el ing.: GAP_ALTO = 0.48f
+    // Altura del hueco en NDC : GAP_ALTO = 0.48f
     private static final float ALTO_HUECO = 0.48f;
 
-    // Ancho de la tubería en NDC — mismo valor que el ing.: TUBERIA_ANCHO = 0.18f
+    // Ancho de la tubería en NDC : TUBERIA_ANCHO = 0.18f
     private static final float ANCHO = 0.18f;
 
-    // Velocidad de desplazamiento horizontal en NDC/s — igual que el ing.: 0.62f
+    // Velocidad de desplazamiento horizontal en NDC/s : 0.62f
     private float velocidad;
 
     // Indica si el pájaro 1 ya pasó esta tubería (para no contar el punto dos veces)
@@ -71,7 +71,6 @@ public class Tuberia {
 
         // --- TUBERÍA INFERIOR ---
         // En NDC: va desde -1.0 (suelo) hasta el borde inferior del hueco.
-        // El ing. calcula: altoInferior = gapBottom + 1.0f, yCentro = -1 + alto/2
         // Aquí: origen en esquina inferior-izquierda, alto = huecoAbajo - (-1.0)
         float altoInf = huecoAbajo + 1.0f;
         renderer.dibujarRect(x, -1.0f, ANCHO, altoInf, r, g, b);
@@ -104,7 +103,6 @@ public class Tuberia {
      */
     public boolean fueraDePantalla() {
         // En NDC: fuera de pantalla cuando el borde derecho pasa el límite izquierdo (-1.3)
-        // Igual que el ing.: t.x + TUBERIA_ANCHO/2 < -1.3f  (adaptado a esquina izq.)
         return x + ANCHO < -1.3f;
     }
 

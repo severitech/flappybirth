@@ -1,4 +1,4 @@
-# FlapyBirth - Flappy Bird 2 Jugadores
+# FlapyBird - Flappy Bird 2 Jugadores
 
 ## Integrantes
 
@@ -21,14 +21,14 @@ Implementación del juego clásico Flappy Bird con soporte para **dos jugadores 
 Si solo quieres jugar sin clonar el repositorio ni instalar Maven, descarga el JAR directamente desde GitHub y ejecútalo:
 
 ```bash
-curl -L -o flappy-bird.jar https://raw.githubusercontent.com/severitech/flappybirth/main/flappy-bird-1.0.jar && java -jar flappy-bird.jar
+curl -L -o flappy-bird.jar https://raw.githubusercontent.com/severitech/flappybird/main/flappy-bird-1.0.jar && java -jar flappy-bird.jar
 ```
 
 O en dos pasos:
 
 ```bash
 # 1. Descargar el JAR
-curl -L -o flappy-bird.jar https://raw.githubusercontent.com/severitech/flappybirth/main/flappy-bird-1.0.jar
+curl -L -o flappy-bird.jar https://raw.githubusercontent.com/severitech/flappybird/main/flappy-bird-1.0.jar
 
 # 2. Ejecutar
 java -jar flappy-bird.jar
